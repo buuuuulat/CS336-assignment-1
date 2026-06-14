@@ -104,8 +104,9 @@ def single_merge(
             pairs_to_pretokens[pair].add(new_pretoken)
 
         del pretokens_counter[pretoken]
-        del pairs_to_pretokens[max_pair]
         pretokens_counter[new_pretoken] += freq
+
+    del pairs_to_pretokens[max_pair]
 
     return max_pair
 
@@ -134,9 +135,9 @@ def train_byte_bpe(
 
 
 if __name__ == '__main__':
-    vocab, merges = train_byte_bpe(input_path="../data/TinyStoriesV2-GPT4-train.txt", vocab_size=10000,
+    vocab, merges = train_byte_bpe(input_path="../data/owt_train.txt", vocab_size=10000,
                                    special_tokens=["<|endoftext|>"],
-                                   chunking_num_processes=12, split_special_token=b"<|endoftext|>")
+                                   chunking_num_processes=1, split_special_token=b"<|endoftext|>")
     print("VOCAB")
     for k, v in vocab.items():
         print(v)
