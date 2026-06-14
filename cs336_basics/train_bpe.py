@@ -120,12 +120,23 @@ def train_byte_bpe(
     vocab = init_vocab(special_tokens, vocab_size)
     pretokens_counter = count_words(input_path, special_tokens, chunking_num_processes, split_special_token)
     pairs_counter, pairs_to_pretokens = count_pairs_and_index(pretokens_counter)
+    merges = []
 
+    c = 0
     while len(vocab) < vocab_size and pairs_counter:
-        pass
+        merge = single_merge(vocab, pairs_counter, pretokens_counter, pairs_to_pretokens)
+        merges.append(merge)
+        if c % 100 == 0:
+            print(f"Step: {c} finished")
+        c += 1
 
-    # return vocab, merges
+    return vocab, merges
 
 
 if __name__ == '__main__':
-    pass
+    vocab, merges = train_byte_bpe(input_path="../data/TinyStoriesV2-GPT4-train.txt", vocab_size=10000,
+                                   special_tokens=["<|endoftext|>"],
+                                   chunking_num_processes=12, split_special_token=b"<|endoftext|>")
+    print("VOCAB")
+    for k, v in vocab.items():
+        print(v)
