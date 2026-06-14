@@ -81,11 +81,9 @@ def single_merge(
         pairs = tuple(((a, b) for a, b in zip(pretoken, pretoken[1:])))
         for pair in pairs:
             pairs_counter[pair] -= freq
-            if pairs_counter[pair] <= 0:
+            if pairs_counter[pair] == 0:
                 del pairs_counter[pair]
-            s = pairs_to_pretokens[pair]
-            if not s:
-                pairs_to_pretokens[pair].discard(pretoken)
+            pairs_to_pretokens[pair].discard(pretoken)
 
         i = 0
         new_pretoken = []
