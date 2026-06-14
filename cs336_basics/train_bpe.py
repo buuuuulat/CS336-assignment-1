@@ -5,6 +5,7 @@ from multiprocessing import Pool
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
 pattern = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+BYTES_TOKENS = [bytes([i]) for i in range(256)]
 
 
 def count_pretokens_in_chunk(path: str, start: int, end: int, special_tokens: list[str]) -> Counter[tuple[bytes, ...]]:
@@ -22,14 +23,14 @@ def count_pretokens_in_chunk(path: str, start: int, end: int, special_tokens: li
 
     for segment in segments:
         matches = pattern.finditer(segment)
-        pretokens_counter.update([tuple(bytes([b]) for b in match.group().encode("utf-8")) for match in matches])
+        pretokens_counter.update(tuple(BYTES_TOKENS[b] for b in match.group().encode("utf-8")) for match in matches)
 
     return pretokens_counter  # dict[tuple[bytes, ...], int]
 
 
 def init_vocab(special_tokens: list[str], vocab_size: int) -> dict[int, bytes]:
     assert len(special_tokens) + 256 <= vocab_size
-    vocab = {i: bytes([i]) for i in range(256)}
+    vocab = {i: b for i, b in enumerate(BYTES_TOKENS)}
     for special_token in special_tokens:
         vocab[len(vocab)] = special_token.encode("utf-8")
     return vocab  # First 256 bytes + special tokens
@@ -39,10 +40,11 @@ def count_words(
         input_path: str,
         special_tokens: list[str],
         chunking_num_processes: int,
+        num_chunks: int,
         split_special_token: bytes
 ) -> Counter[tuple[bytes, ...]]:
     with open(input_path, 'rb') as f:
-        boundaries = find_chunk_boundaries(f, chunking_num_processes, split_special_token)
+        boundaries = find_chunk_boundaries(f, num_chunks, split_special_token)
 
     # Parallelize
     params = [(input_path, start, end, special_tokens) for start, end in zip(boundaries[:-1], boundaries[1:])]
@@ -79,9 +81,11 @@ def single_merge(
         pairs = tuple(((a, b) for a, b in zip(pretoken, pretoken[1:])))
         for pair in pairs:
             pairs_counter[pair] -= freq
-            if pairs_counter[pair] == 0:
+            if pairs_counter[pair] <= 0:
                 del pairs_counter[pair]
-            pairs_to_pretokens[pair].discard(pretoken)
+            s = pairs_to_pretokens[pair]
+            if not s:
+                pairs_to_pretokens[pair].discard(pretoken)
 
         i = 0
         new_pretoken = []
@@ -116,10 +120,11 @@ def train_byte_bpe(
         vocab_size: int,
         special_tokens: list[str],
         chunking_num_processes: int,
+        num_chunks: int,
         split_special_token: bytes = b"<|endoftext|>"
 ):
     vocab = init_vocab(special_tokens, vocab_size)
-    pretokens_counter = count_words(input_path, special_tokens, chunking_num_processes, split_special_token)
+    pretokens_counter = count_words(input_path, special_tokens, chunking_num_processes, num_chunks, split_special_token)
     pairs_counter, pairs_to_pretokens = count_pairs_and_index(pretokens_counter)
     merges = []
 
@@ -137,7 +142,7 @@ def train_byte_bpe(
 if __name__ == '__main__':
     vocab, merges = train_byte_bpe(input_path="../data/owt_train.txt", vocab_size=10000,
                                    special_tokens=["<|endoftext|>"],
-                                   chunking_num_processes=1, split_special_token=b"<|endoftext|>")
+                                   chunking_num_processes=8, num_chunks=200, split_special_token=b"<|endoftext|>")
     print("VOCAB")
     for k, v in vocab.items():
         print(v)
