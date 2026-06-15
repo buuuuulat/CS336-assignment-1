@@ -1,6 +1,8 @@
+import json
 import regex as re
-from collections import Counter, defaultdict
+from pathlib import Path
 from multiprocessing import Pool
+from collections import Counter, defaultdict
 
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
@@ -72,7 +74,7 @@ def single_merge(
         pairs_counter: Counter[tuple[bytes, bytes]],
         pretokens_counter: Counter[tuple[bytes, ...]],
         pairs_to_pretokens: defaultdict[tuple[bytes, bytes], set[tuple[bytes, ...]]]
-):
+) -> tuple[bytes, bytes]:
     max_pair = max(pairs_counter, key=lambda pair: (pairs_counter[pair], pair))  # Max by counts and lexicography
     vocab[len(vocab)] = b''.join(max_pair)
 
@@ -120,7 +122,7 @@ def train_byte_bpe(
         chunking_num_processes: int,
         num_chunks: int,
         split_special_token: bytes = b"<|endoftext|>"
-):
+) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     vocab = init_vocab(special_tokens, vocab_size)
     pretokens_counter = count_words(input_path, special_tokens, chunking_num_processes, num_chunks, split_special_token)
     pairs_counter, pairs_to_pretokens = count_pairs_and_index(pretokens_counter)
@@ -138,9 +140,28 @@ def train_byte_bpe(
 
 
 if __name__ == '__main__':
-    vocab, merges = train_byte_bpe(input_path="../data/owt_train.txt", vocab_size=10000,
-                                   special_tokens=["<|endoftext|>"],
-                                   chunking_num_processes=8, num_chunks=200, split_special_token=b"<|endoftext|>")
-    print("VOCAB")
-    for k, v in vocab.items():
-        print(v)
+    vocab, merges = train_byte_bpe(
+        input_path="./data/owt_train.txt",
+        vocab_size=32000,
+        special_tokens=["<|endoftext|>"],
+        chunking_num_processes=8,
+        num_chunks=300,
+        split_special_token=b"<|endoftext|>"
+    )
+
+    vocab_save_path = Path("./outputs/bpe/vocab.json")
+    vocab_save_path.parent.mkdir(parents=True, exist_ok=True)
+    vocab_serializable = {
+        int_key: bytes_value.decode("utf-8", errors="replace")
+        for int_key, bytes_value in vocab.items()
+    }
+    vocab_save_path.write_text(json.dumps(vocab_serializable, indent=4, ensure_ascii=False))
+
+    merges_save_path = Path("./outputs/bpe/merges.txt")
+    merges_save_path.parent.mkdir(parents=True, exist_ok=True)
+    merges_lines = []
+    for pair in merges:
+        first = pair[0].decode("utf-8", errors="replace")
+        second = pair[1].decode("utf-8", errors="replace")
+        merges_lines.append(f"({first}<=|=>{second})")
+    merges_save_path.write_text('\n'.join(merges_lines))
