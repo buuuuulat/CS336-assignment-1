@@ -115,7 +115,7 @@ def single_merge(
     return max_pair
 
 
-def train_byte_bpe(
+def train_bpe(
         input_path: str,
         vocab_size: int,
         special_tokens: list[str],
@@ -140,7 +140,7 @@ def train_byte_bpe(
 
 
 if __name__ == '__main__':
-    vocab, merges = train_byte_bpe(
+    vocab, merges = train_bpe(
         input_path="./data/owt_train.txt",
         vocab_size=32000,
         special_tokens=["<|endoftext|>"],
