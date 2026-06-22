@@ -1,6 +1,6 @@
-import json
+import os
+import pickle
 import regex as re
-from pathlib import Path
 from multiprocessing import Pool
 from collections import Counter, defaultdict
 
@@ -39,7 +39,7 @@ def init_vocab(special_tokens: list[str], vocab_size: int) -> dict[int, bytes]:
 
 
 def count_words(
-        input_path: str,
+        input_path: str | os.PathLike,
         special_tokens: list[str],
         chunking_num_processes: int,
         num_chunks: int,
@@ -116,7 +116,7 @@ def single_merge(
 
 
 def train_bpe(
-        input_path: str,
+        input_path: str | os.PathLike,
         vocab_size: int,
         special_tokens: list[str],
         chunking_num_processes: int,
@@ -132,7 +132,7 @@ def train_bpe(
     while len(vocab) < vocab_size and pairs_counter:
         merge = single_merge(vocab, pairs_counter, pretokens_counter, pairs_to_pretokens)
         merges.append(merge)
-        if c % 100 == 0:
+        if c % 1000 == 0:
             print(f"Step: {c} finished")
         c += 1
 
@@ -141,27 +141,21 @@ def train_bpe(
 
 if __name__ == '__main__':
     vocab, merges = train_bpe(
-        input_path="./data/owt_train.txt",
-        vocab_size=32000,
+        input_path="./data/TinyStoriesV2-GPT4-train.txt",
+        vocab_size=10000,
         special_tokens=["<|endoftext|>"],
         chunking_num_processes=8,
-        num_chunks=300,
+        num_chunks=8,
         split_special_token=b"<|endoftext|>"
     )
+    print("Longest sequence:", max(vocab.items(), key=lambda item: len(item[1])))
 
-    vocab_save_path = Path("./outputs/bpe/vocab.json")
-    vocab_save_path.parent.mkdir(parents=True, exist_ok=True)
-    vocab_serializable = {
-        int_key: bytes_value.decode("utf-8", errors="replace")
-        for int_key, bytes_value in vocab.items()
-    }
-    vocab_save_path.write_text(json.dumps(vocab_serializable, indent=4, ensure_ascii=False))
+    vocab_save_path = "./outputs/bpe_tinystories/vocab.pkl"
+    os.makedirs(os.path.dirname(vocab_save_path), exist_ok=True)
+    with open(vocab_save_path, 'wb') as f:
+        pickle.dump(vocab, f)
 
-    merges_save_path = Path("./outputs/bpe/merges.txt")
-    merges_save_path.parent.mkdir(parents=True, exist_ok=True)
-    merges_lines = []
-    for pair in merges:
-        first = pair[0].decode("utf-8", errors="replace")
-        second = pair[1].decode("utf-8", errors="replace")
-        merges_lines.append(f"({first}<=|=>{second})")
-    merges_save_path.write_text('\n'.join(merges_lines))
+    merges_save_path = "./outputs/bpe_tinystories/merges.pkl"
+    os.makedirs(os.path.dirname(merges_save_path), exist_ok=True)
+    with open(merges_save_path, 'wb') as f:
+        pickle.dump(merges, f)
