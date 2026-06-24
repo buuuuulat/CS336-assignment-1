@@ -547,7 +547,7 @@ def get_tokenizer(
     special_tokens: list[str] | None = None,
 ) -> Any:
     """Given a vocabulary, a list of merges, and a list of special tokens,
-    return a BPE tokenizer that uses the provided vocab, merges, and special tokens.
+    return a BPE tokenizer that uses the provided ints_to_tokens, merges, and special tokens.
 
     Args:
         vocab (dict[int, bytes]): The tokenizer vocabulary, a mapping from int (token ID in the vocabulary)
@@ -559,7 +559,7 @@ def get_tokenizer(
             be split into multiple tokens, and will always be kept as a single token.
 
     Returns:
-        A BPE tokenizer that uses the provided vocab, merges, and special tokens.
+        A BPE tokenizer that uses the provided ints_to_tokens, merges, and special tokens.
     """
     raise NotImplementedError
 
@@ -583,7 +583,7 @@ def run_train_bpe(
 
     Returns:
         tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
-            vocab:
+            ints_to_tokens:
                 The trained tokenizer vocabulary, a mapping from int (token ID in the vocabulary)
                 to bytes (token bytes)
             merges:

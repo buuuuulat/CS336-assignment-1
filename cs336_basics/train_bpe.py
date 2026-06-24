@@ -121,7 +121,7 @@ def train_bpe(
         special_tokens: list[str],
         chunking_num_processes: int,
         num_chunks: int,
-        split_special_token: bytes = b"<|endoftext|>"
+        split_special_token: bytes = b'<|endoftext|>'
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     vocab = init_vocab(special_tokens, vocab_size)
     pretokens_counter = count_words(input_path, special_tokens, chunking_num_processes, num_chunks, split_special_token)
@@ -146,11 +146,11 @@ if __name__ == '__main__':
         special_tokens=["<|endoftext|>"],
         chunking_num_processes=8,
         num_chunks=8,
-        split_special_token=b"<|endoftext|>"
+        split_special_token=b'<|endoftext|>'
     )
     print("Longest sequence:", max(vocab.items(), key=lambda item: len(item[1])))
 
-    vocab_save_path = "./outputs/bpe_tinystories/vocab.pkl"
+    vocab_save_path = "./outputs/bpe_tinystories/ints_to_tokens.pkl"
     os.makedirs(os.path.dirname(vocab_save_path), exist_ok=True)
     with open(vocab_save_path, 'wb') as f:
         pickle.dump(vocab, f)
