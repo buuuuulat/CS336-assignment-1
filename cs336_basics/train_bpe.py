@@ -141,21 +141,21 @@ def train_bpe(
 
 if __name__ == '__main__':
     vocab, merges = train_bpe(
-        input_path="./data/TinyStoriesV2-GPT4-train.txt",
-        vocab_size=10000,
+        input_path="./data/owt_train.txt",
+        vocab_size=32000,
         special_tokens=["<|endoftext|>"],
         chunking_num_processes=8,
-        num_chunks=8,
-        split_special_token=b'<|endoftext|>'
+        num_chunks=200,
+        split_special_token=b'<|endoftext|>',
     )
     print("Longest sequence:", max(vocab.items(), key=lambda item: len(item[1])))
 
-    vocab_save_path = "./outputs/bpe_tinystories/ints_to_tokens.pkl"
+    vocab_save_path = "./outputs/bpe_owt/ints_to_tokens.pkl"
     os.makedirs(os.path.dirname(vocab_save_path), exist_ok=True)
     with open(vocab_save_path, 'wb') as f:
         pickle.dump(vocab, f)
 
-    merges_save_path = "./outputs/bpe_tinystories/merges.pkl"
+    merges_save_path = "./outputs/bpe_owt/merges.pkl"
     os.makedirs(os.path.dirname(merges_save_path), exist_ok=True)
     with open(merges_save_path, 'wb') as f:
         pickle.dump(merges, f)

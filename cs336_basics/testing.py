@@ -3,7 +3,7 @@ import pickle
 from tokenizer import Tokenizer
 
 
-with open("./outputs/bpe_tinystories/vocab.pkl", "rb") as f:
+with open("./outputs/bpe_tinystories/ints_to_tokens.pkl", "rb") as f:
     vocab = pickle.load(f)
 
 with open("./outputs/bpe_tinystories/merges.pkl", "rb") as f:
