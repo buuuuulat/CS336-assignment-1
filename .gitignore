@@ -166,3 +166,4 @@ data/
 .idea/
 
 outputs/
+tokenized/
