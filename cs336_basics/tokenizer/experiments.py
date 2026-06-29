@@ -1,5 +1,6 @@
 import pickle
 import regex as re
+
 from tokenizer import Tokenizer
 
 special_tokens = ["<|endoftext|>"]

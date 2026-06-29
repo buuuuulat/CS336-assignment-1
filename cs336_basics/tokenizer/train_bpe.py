@@ -4,7 +4,7 @@ import regex as re
 from multiprocessing import Pool
 from collections import Counter, defaultdict
 
-from cs336_basics.pretokenization_example import find_chunk_boundaries
+from cs336_basics.tokenizer.pretokenization_example import find_chunk_boundaries
 
 pattern = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 BYTES_TOKENS = [bytes([i]) for i in range(256)]
