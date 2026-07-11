@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from einops import einsum
+from typing import cast
+from einops import einsum, rearrange
 
 
 class Linear(nn.Module):
@@ -83,3 +84,40 @@ class SwiGLU(nn.Module):
         gated = w3x * silu
         result = einsum(self.W2, gated, "... d_model d_ff, ... d_ff -> ... d_model")
         return result
+
+
+class RoPE(nn.Module):
+    def __init__(
+            self,
+            theta: float,
+            d_k: int,
+            max_seq_len: int,
+            device: torch.device | None = None,
+    ) -> None:
+        super().__init__()
+        assert d_k % 2 == 0, "d_k should be even"
+        pos = torch.arange(max_seq_len, dtype=torch.float32, device=device)  # (max_seq_len)
+        k = torch.arange(d_k // 2, dtype=torch.float32, device=device)  # (d_k // 2)
+        freq = theta ** (-2 * k / d_k)  # (d_k // 2)
+        angles = cast(torch.Tensor, einsum(pos, freq, "max_seq_len, num_pairs -> max_seq_len num_pairs"))
+
+        sin_t = torch.sin(angles)
+        cos_t = torch.cos(angles)
+        self.register_buffer("sin", sin_t, persistent=False)
+        self.register_buffer("cos", cos_t, persistent=False)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        # x: (..., seq_len, d_k)
+        # token_positions: (..., seq_len)
+        x_pairs = rearrange(x, "... seq_len (pairs two) -> ... seq_len pairs two", two=2)
+        x1 = x_pairs[..., 0]  # (..., seq_len, pairs)
+        x2 = x_pairs[..., 1]  # (..., seq_len, pairs)
+
+        sin = self.sin[token_positions]  # (..., seq_len, pairs)
+        cos = self.cos[token_positions]  # (..., seq_len, pairs)
+        x1_r = cos * x1 - sin * x2
+        x2_r = sin * x1 + cos * x2
+
+        x_r = torch.stack((x1_r, x2_r), dim=-1)  # (..., seq_len, pairs, 2)
+        x_r = rearrange(x_r, "... seq_len pairs two -> ... seq_len (pairs two)")
+        return x_r
