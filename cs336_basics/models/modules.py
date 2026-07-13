@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from typing import cast
 from einops import einsum, rearrange
+from cs336_basics.models.utils import scaled_dot_product_attention
 
 
 class Linear(nn.Module):
@@ -121,3 +122,55 @@ class RoPE(nn.Module):
         x_r = torch.stack((x1_r, x2_r), dim=-1)  # (..., seq_len, pairs, 2)
         x_r = rearrange(x_r, "... seq_len pairs two -> ... seq_len (pairs two)")
         return x_r
+
+
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(
+            self,
+            d_model,
+            num_heads,
+            device = None,
+            dtype = torch.float32,
+            use_causal = False,
+            use_rope = False,
+            theta = 10000.0,
+            max_seq_len = 256,
+    ):
+        super().__init__()
+        assert d_model % num_heads == 0
+        d_k = d_v = int(d_model / num_heads)
+        self.num_heads = num_heads
+        self.use_causal = use_causal
+        self.Wq = nn.Parameter(nn.init.trunc_normal_(torch.empty(num_heads * d_k, d_model, device=device, dtype=dtype)))
+        self.Wk = nn.Parameter(nn.init.trunc_normal_(torch.empty(num_heads * d_k, d_model, device=device, dtype=dtype)))
+        self.Wv = nn.Parameter(nn.init.trunc_normal_(torch.empty(num_heads * d_v, d_model, device=device, dtype=dtype)))
+        self.Wo = nn.Parameter(nn.init.trunc_normal_(torch.empty(d_model, num_heads * d_v, device=device, dtype=dtype)))
+
+        self.use_rope = use_rope
+        self.RoPE = RoPE(theta, d_k, max_seq_len, device=device) if use_rope else None
+
+    def forward(self, x, token_positions=None):  # x: (..., seq_len, d_model)
+        if self.use_causal:
+            mask = torch.tril(torch.ones(x.shape[-2], x.shape[-2], device=x.device, dtype=torch.bool))
+        else:
+            mask = None
+
+        q = einsum(x, self.Wq, "... seq_len d_model, d_out d_model -> ... seq_len d_out")
+        q = rearrange(q, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)
+
+        k = einsum(x, self.Wk, "... seq_len d_model, d_out d_model -> ... seq_len d_out")
+        k = rearrange(k, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)
+
+        v = einsum(x, self.Wv, "... seq_len d_model, d_v_out d_model -> ... seq_len d_v_out")
+        v = rearrange(v, "... seq_len (h d_v) -> ... h seq_len d_v", h=self.num_heads)
+
+        if self.use_rope:
+            if token_positions is None:
+                token_positions = torch.arange(x.shape[-2], device=x.device)
+            q = self.RoPE(q, token_positions)
+            k = self.RoPE(k, token_positions)
+
+        multihead = scaled_dot_product_attention(q, k, v, mask=mask)  # (..., q_n, v)
+        multihead = rearrange(multihead, "... h seq d_v -> ... seq (h d_v)")
+        attention = einsum(self.Wo, multihead, "d_model d_v_out, ... seq d_v_out -> ... seq d_model")
+        return attention

@@ -11,7 +11,7 @@ from torch import Tensor
 
 from cs336_basics.tokenizer.train_bpe import train_bpe
 from cs336_basics.tokenizer.tokenizer import Tokenizer
-from cs336_basics.models.modules import Linear, Embedding, RMSNorm, SwiGLU, RoPE
+from cs336_basics.models.modules import Linear, Embedding, RMSNorm, SwiGLU, RoPE, MultiHeadSelfAttention
 from cs336_basics.models.utils import softmax, scaled_dot_product_attention
 
 
@@ -147,7 +147,16 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    attention_module = MultiHeadSelfAttention(d_model, num_heads, use_causal=True)
+    attention_module.load_state_dict(
+        {
+            "Wq": q_proj_weight,
+            "Wk": k_proj_weight,
+            "Wv": v_proj_weight,
+            "Wo": o_proj_weight
+        }
+    )
+    return attention_module(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -187,7 +196,23 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    attention_module = MultiHeadSelfAttention(
+        d_model,
+        num_heads,
+        max_seq_len=max_seq_len,
+        use_causal=True,
+        use_rope=True,
+        theta=theta,
+    )
+    attention_module.load_state_dict(
+        {
+            "Wq": q_proj_weight,
+            "Wk": k_proj_weight,
+            "Wv": v_proj_weight,
+            "Wo": o_proj_weight
+        }
+    )
+    return attention_module(in_features, token_positions)
 
 
 def run_rope(
