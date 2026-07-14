@@ -150,9 +150,7 @@ def run_multihead_self_attention(
     attention_module = MultiHeadSelfAttention(d_model, num_heads, use_causal=True)
     attention_module.load_state_dict(
         {
-            "Wq": q_proj_weight,
-            "Wk": k_proj_weight,
-            "Wv": v_proj_weight,
+            "Wqkv": torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0),
             "Wo": o_proj_weight
         }
     )
@@ -206,9 +204,7 @@ def run_multihead_self_attention_with_rope(
     )
     attention_module.load_state_dict(
         {
-            "Wq": q_proj_weight,
-            "Wk": k_proj_weight,
-            "Wv": v_proj_weight,
+            "Wqkv": torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0),
             "Wo": o_proj_weight
         }
     )

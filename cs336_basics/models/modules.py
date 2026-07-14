@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from typing import cast
 from einops import einsum, rearrange
+from torch._C import dtype
+
 from cs336_basics.models.utils import scaled_dot_product_attention
 
 
@@ -129,23 +131,30 @@ class MultiHeadSelfAttention(nn.Module):
             self,
             d_model,
             num_heads,
-            device = None,
-            dtype = torch.float32,
-            use_causal = False,
-            use_rope = False,
-            theta = 10000.0,
-            max_seq_len = 256,
+            device=None,
+            dtype=torch.float32,
+            use_causal=False,
+            use_rope=False,
+            theta=10000.0,
+            max_seq_len=256,
     ):
         super().__init__()
         assert d_model % num_heads == 0
         d_k = d_v = int(d_model / num_heads)
         self.num_heads = num_heads
+        self.split_sizes = [num_heads * d_k, num_heads * d_k, num_heads * d_v]
         self.use_causal = use_causal
-        self.Wq = nn.Parameter(nn.init.trunc_normal_(torch.empty(num_heads * d_k, d_model, device=device, dtype=dtype)))
-        self.Wk = nn.Parameter(nn.init.trunc_normal_(torch.empty(num_heads * d_k, d_model, device=device, dtype=dtype)))
-        self.Wv = nn.Parameter(nn.init.trunc_normal_(torch.empty(num_heads * d_v, d_model, device=device, dtype=dtype)))
+        self.Wqkv = nn.Parameter(
+            nn.init.trunc_normal_(
+                torch.empty(
+                    num_heads * d_k + num_heads * d_k + num_heads * d_v,
+                    d_model,
+                    device=device,
+                    dtype=dtype,
+                )
+            )
+        )
         self.Wo = nn.Parameter(nn.init.trunc_normal_(torch.empty(d_model, num_heads * d_v, device=device, dtype=dtype)))
-
         self.use_rope = use_rope
         self.RoPE = RoPE(theta, d_k, max_seq_len, device=device) if use_rope else None
 
@@ -155,13 +164,10 @@ class MultiHeadSelfAttention(nn.Module):
         else:
             mask = None
 
-        q = einsum(x, self.Wq, "... seq_len d_model, d_out d_model -> ... seq_len d_out")
+        qkv = einsum(x, self.Wqkv, "... seq_len d_model, qkv d_model -> ... seq_len qkv")
+        q, k, v = torch.split(qkv, self.split_sizes, dim=-1)
         q = rearrange(q, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)
-
-        k = einsum(x, self.Wk, "... seq_len d_model, d_out d_model -> ... seq_len d_out")
         k = rearrange(k, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)
-
-        v = einsum(x, self.Wv, "... seq_len d_model, d_v_out d_model -> ... seq_len d_v_out")
         v = rearrange(v, "... seq_len (h d_v) -> ... h seq_len d_v", h=self.num_heads)
 
         if self.use_rope:
