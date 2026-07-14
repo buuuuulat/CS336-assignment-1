@@ -137,7 +137,7 @@ class MultiHeadSelfAttention(nn.Module):
             use_rope: bool = True,
             theta: float = 10000.0,
             max_seq_len: int = 256,
-            rope: RoPE | None = None,
+            rope: RoPE | None = None,  # if passed, use_rope becomes True
     ):
         super().__init__()
         assert d_model % num_heads == 0
@@ -160,7 +160,8 @@ class MultiHeadSelfAttention(nn.Module):
             self.rope = rope
         elif use_rope:
             self.rope = RoPE(theta, d_k, max_seq_len, device=device)
-        else: self.rope = None
+        else:
+            self.rope = None
 
     def forward(self, x, token_positions=None):  # x: (..., seq_len, d_model)
         if self.use_causal:

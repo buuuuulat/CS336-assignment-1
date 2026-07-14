@@ -13,7 +13,7 @@ from cs336_basics.tokenizer.train_bpe import train_bpe
 from cs336_basics.tokenizer.tokenizer import Tokenizer
 from cs336_basics.models.modules import Linear, Embedding, RMSNorm, SwiGLU, RoPE, MultiHeadSelfAttention
 from cs336_basics.models.utils import softmax, scaled_dot_product_attention
-from cs336_basics.models.transformers import TransformerBlock
+from cs336_basics.models.transformers import TransformerBlock, TransformerLM
 
 
 def run_linear(
@@ -408,7 +408,38 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    transformer_lm = TransformerLM(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        num_layers=num_layers,
+        d_model=d_model,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        theta=rope_theta,
+    )
+
+    state = {
+        "embedding.embeddings": weights["token_embeddings.weight"],
+        "norm.gs": weights["ln_final.weight"],
+        "linear.W": weights["lm_head.weight"],
+    }
+    for i in range(num_layers):
+        p = f"layers.{i}."
+        b = f"transformer_blocks.{i}."
+        state[b + "attn.Wqkv"] = torch.cat([
+            weights[p + "attn.q_proj.weight"],
+            weights[p + "attn.k_proj.weight"],
+            weights[p + "attn.v_proj.weight"],
+        ], dim=0)
+        state[b + "attn.Wo"] = weights[p + "attn.output_proj.weight"]
+        state[b + "attn_norm.gs"] = weights[p + "ln1.weight"]
+        state[b + "ffn_norm.gs"] = weights[p + "ln2.weight"]
+        state[b + "ffn.W1"] = weights[p + "ffn.w1.weight"]
+        state[b + "ffn.W2"] = weights[p + "ffn.w2.weight"]
+        state[b + "ffn.W3"] = weights[p + "ffn.w3.weight"]
+
+    transformer_lm.load_state_dict(state)
+    return transformer_lm(in_indices)
 
 
 def run_rmsnorm(
