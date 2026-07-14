@@ -13,6 +13,7 @@ from cs336_basics.tokenizer.train_bpe import train_bpe
 from cs336_basics.tokenizer.tokenizer import Tokenizer
 from cs336_basics.models.modules import Linear, Embedding, RMSNorm, SwiGLU, RoPE, MultiHeadSelfAttention
 from cs336_basics.models.utils import softmax, scaled_dot_product_attention
+from cs336_basics.models.transformers import TransformerBlock
 
 
 def run_linear(
@@ -147,7 +148,7 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    attention_module = MultiHeadSelfAttention(d_model, num_heads, use_causal=True)
+    attention_module = MultiHeadSelfAttention(d_model, num_heads, use_causal=True, use_rope=False)
     attention_module.load_state_dict(
         {
             "Wqkv": torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0),
@@ -304,7 +305,28 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    transformer_block = TransformerBlock(
+        d_model = d_model,
+        num_heads = num_heads,
+        d_ff = d_ff,
+        max_seq_len = max_seq_len,
+        theta = theta,
+    )
+    state = {
+        "attn.Wqkv": torch.cat([
+            weights["attn.q_proj.weight"],
+            weights["attn.k_proj.weight"],
+            weights["attn.v_proj.weight"],
+        ], dim=0),
+        "attn.Wo": weights["attn.output_proj.weight"],
+        "attn_norm.gs": weights["ln1.weight"],
+        "ffn_norm.gs": weights["ln2.weight"],
+        "ffn.W1": weights["ffn.w1.weight"],
+        "ffn.W2": weights["ffn.w2.weight"],
+        "ffn.W3": weights["ffn.w3.weight"],
+    }
+    transformer_block.load_state_dict(state)
+    return transformer_block(in_features)
 
 
 def run_transformer_lm(

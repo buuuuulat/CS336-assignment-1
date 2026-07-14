@@ -1,8 +1,8 @@
+from typing import cast
+
 import torch
 import torch.nn as nn
-from typing import cast
 from einops import einsum, rearrange
-from torch._C import dtype
 
 from cs336_basics.models.utils import scaled_dot_product_attention
 
@@ -129,14 +129,15 @@ class RoPE(nn.Module):
 class MultiHeadSelfAttention(nn.Module):
     def __init__(
             self,
-            d_model,
-            num_heads,
-            device=None,
-            dtype=torch.float32,
-            use_causal=False,
-            use_rope=False,
-            theta=10000.0,
-            max_seq_len=256,
+            d_model: int,
+            num_heads: int,
+            device: torch.device | None = None,
+            dtype: torch.dtype | None = torch.float32,
+            use_causal: bool = True,
+            use_rope: bool = True,
+            theta: float = 10000.0,
+            max_seq_len: int = 256,
+            rope: RoPE | None = None,
     ):
         super().__init__()
         assert d_model % num_heads == 0
@@ -155,8 +156,11 @@ class MultiHeadSelfAttention(nn.Module):
             )
         )
         self.Wo = nn.Parameter(nn.init.trunc_normal_(torch.empty(d_model, num_heads * d_v, device=device, dtype=dtype)))
-        self.use_rope = use_rope
-        self.RoPE = RoPE(theta, d_k, max_seq_len, device=device) if use_rope else None
+        if rope is not None:
+            self.rope = rope
+        elif use_rope:
+            self.rope = RoPE(theta, d_k, max_seq_len, device=device)
+        else: self.rope = None
 
     def forward(self, x, token_positions=None):  # x: (..., seq_len, d_model)
         if self.use_causal:
@@ -170,11 +174,11 @@ class MultiHeadSelfAttention(nn.Module):
         k = rearrange(k, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)
         v = rearrange(v, "... seq_len (h d_v) -> ... h seq_len d_v", h=self.num_heads)
 
-        if self.use_rope:
+        if self.rope is not None:
             if token_positions is None:
                 token_positions = torch.arange(x.shape[-2], device=x.device)
-            q = self.RoPE(q, token_positions)
-            k = self.RoPE(k, token_positions)
+            q = self.rope(q, token_positions)
+            k = self.rope(k, token_positions)
 
         multihead = scaled_dot_product_attention(q, k, v, mask=mask)  # (..., q_n, v)
         multihead = rearrange(multihead, "... h seq d_v -> ... seq (h d_v)")
