@@ -1,14 +1,16 @@
 import pickle
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+from tqdm import tqdm
 
 from tokenizer import Tokenizer
 
-def tokenize(tokenizer, file_path, output_path, special_tokens=None):
-    ids = []
+
+def tokenize(tokenizer, file_path, output_path):
+    n_lines = sum(1 for _ in open(file_path))
     with open(file_path, "r") as f:
-        for tid in tokenizer.encode_iterable(f):
-            ids.append(tid)
+        ids = list(tokenizer.encode_iterable(tqdm(f, total=n_lines)))
     arr = np.array(ids, dtype=np.uint16)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     np.save(output_path, arr)
@@ -24,5 +26,5 @@ tokenizer = Tokenizer(vocab, merges, special_tokens)
 tokenize(
     tokenizer=tokenizer,
     file_path="./data/owt_train.txt",
-    output_path="./tokenized/owt_train.npy"
+    output_path="./tokenized/owt_train.npy",
 )
