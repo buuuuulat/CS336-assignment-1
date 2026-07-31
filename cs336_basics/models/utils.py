@@ -25,3 +25,13 @@ def scaled_dot_product_attention(
     normalized_scores = softmax(pre_softmax, dim=-1)
     attention = einsum(normalized_scores, values, "... n m, ... m v -> ... n v")
     return attention
+
+
+def cross_entropy_loss(
+        logits: torch.Tensor,
+        targets: torch.Tensor,
+) -> torch.Tensor:
+    # Subtracting the largest element for numerical stability
+    shifted = logits - logits.max(dim=-1, keepdim=True).values
+    loss = (torch.logsumexp(shifted, dim=-1) - torch.gather(shifted, -1, targets.unsqueeze(-1)).squeeze(-1)).mean()
+    return loss
