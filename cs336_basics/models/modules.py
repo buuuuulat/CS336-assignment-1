@@ -1,3 +1,4 @@
+import math
 from typing import cast
 
 import torch
@@ -5,6 +6,11 @@ import torch.nn as nn
 from einops import einsum, rearrange
 
 from cs336_basics.models.utils import scaled_dot_product_attention
+
+
+def init_linear_(w: torch.Tensor, d_in: int, d_out: int) -> torch.Tensor:
+    std = math.sqrt(2 / (d_in + d_out))
+    return nn.init.trunc_normal_(w, mean=0.0, std=std, a=-3 * std, b=3 * std)
 
 
 class Linear(nn.Module):
@@ -16,7 +22,18 @@ class Linear(nn.Module):
             dtype: torch.dtype | None = None,
     ) -> None:
         super().__init__()
-        self.W = nn.Parameter(nn.init.trunc_normal_(torch.empty(out_features, in_features, device=device, dtype=dtype)))
+        self.W = nn.Parameter(
+            init_linear_(
+                torch.empty(
+                    out_features,
+                    in_features,
+                    device=device,
+                    dtype=dtype,
+                ),
+                d_in=in_features,
+                d_out=out_features,
+            ),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return einsum(self.W, x, "... out_features in_features, ... in_features -> ... out_features")
@@ -37,9 +54,13 @@ class Embedding(nn.Module):
                     num_embeddings,
                     embedding_dim,
                     device=device,
-                    dtype=dtype
-                )
-            )
+                    dtype=dtype,
+                ),
+                mean=0.0,
+                std=1.0,
+                a=-3.0,
+                b=3.0,
+            ),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -76,9 +97,42 @@ class SwiGLU(nn.Module):
             dtype: torch.dtype | None = None,
     ) -> None:
         super().__init__()
-        self.W1 = nn.Parameter(nn.init.trunc_normal_(torch.empty(d_ff, d_model, device=device, dtype=dtype)))
-        self.W2 = nn.Parameter(nn.init.trunc_normal_(torch.empty(d_model, d_ff, device=device, dtype=dtype)))
-        self.W3 = nn.Parameter(nn.init.trunc_normal_(torch.empty(d_ff, d_model, device=device, dtype=dtype)))
+        self.W1 = nn.Parameter(
+            init_linear_(
+                torch.empty(
+                    d_ff,
+                    d_model,
+                    device=device,
+                    dtype=dtype,
+                ),
+                d_in=d_model,
+                d_out=d_ff,
+            ),
+        )
+        self.W2 = nn.Parameter(
+            init_linear_(
+                torch.empty(
+                    d_model,
+                    d_ff,
+                    device=device,
+                    dtype=dtype,
+                ),
+                d_in=d_ff,
+                d_out=d_model,
+            ),
+        )
+        self.W3 = nn.Parameter(
+            init_linear_(
+                torch.empty(
+                    d_ff,
+                    d_model,
+                    device=device,
+                    dtype=dtype,
+                ),
+                d_in=d_model,
+                d_out=d_ff,
+            ),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         w1x = einsum(self.W1, x, "d_ff d_model, ... d_model -> ... d_ff")
@@ -132,7 +186,7 @@ class MultiHeadSelfAttention(nn.Module):
             d_model: int,
             num_heads: int,
             device: torch.device | None = None,
-            dtype: torch.dtype | None = torch.float32,
+            dtype: torch.dtype | None = None,
             use_causal: bool = True,
             use_rope: bool = True,
             theta: float = 10000.0,
@@ -141,21 +195,34 @@ class MultiHeadSelfAttention(nn.Module):
     ):
         super().__init__()
         assert d_model % num_heads == 0
-        d_k = d_v = int(d_model / num_heads)
+        d_k = d_v = d_model // num_heads
         self.num_heads = num_heads
         self.split_sizes = [num_heads * d_k, num_heads * d_k, num_heads * d_v]
         self.use_causal = use_causal
         self.Wqkv = nn.Parameter(
-            nn.init.trunc_normal_(
+            init_linear_(
                 torch.empty(
                     num_heads * d_k + num_heads * d_k + num_heads * d_v,
                     d_model,
                     device=device,
                     dtype=dtype,
-                )
-            )
+                ),
+                d_in=d_model,
+                d_out=d_model,
+            ),
         )
-        self.Wo = nn.Parameter(nn.init.trunc_normal_(torch.empty(d_model, num_heads * d_v, device=device, dtype=dtype)))
+        self.Wo = nn.Parameter(
+            init_linear_(
+                torch.empty(
+                    d_model,
+                    num_heads * d_v,
+                    device=device,
+                    dtype=dtype,
+                ),
+                d_in=d_model,
+                d_out=num_heads * d_v,
+            ),
+        )
         if rope is not None:
             self.rope = rope
         elif use_rope:

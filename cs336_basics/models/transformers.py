@@ -37,7 +37,7 @@ class TransformerBlock(nn.Module):
             max_seq_len = max_seq_len,
             rope = rope,
         )
-        self.ffn_norm = RMSNorm(d_model, eps=1e-5, device=device, dtype=dtype)
+        self.ffn_norm = RMSNorm(d_model, eps=rms_norm_eps, device=device, dtype=dtype)
         self.ffn = SwiGLU(
             d_model = d_model,
             d_ff = d_ff,
@@ -64,7 +64,6 @@ class TransformerLM(nn.Module):
             dtype: torch.dtype | None = None,
             rms_norm_eps: float = 1e-5,
             use_causal: bool = True,
-            rope: RoPE | None = None,
             use_rope: bool = True,
             theta: float = 10000.0,
     ) -> None:
@@ -76,10 +75,8 @@ class TransformerLM(nn.Module):
             dtype = dtype,
         )
 
-        if rope is not None:
-            self.rope = rope
-        elif use_rope:
-            d_k = int(d_model / num_heads)
+        if use_rope:
+            d_k = d_model // num_heads
             self.rope = RoPE(theta, d_k, context_length, device=device)
         else:
             self.rope = None
