@@ -1,9 +1,0 @@
-# TransformerLM
-vocab_size: 32000
-context_length: 1024
-num_layers: 8
-d_model: 256
-num_heads: 8
-d_ff: 256
-device: mps
-dtype:
