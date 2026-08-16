@@ -70,3 +70,43 @@ def gradient_clip(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) 
             scale = max_l2_norm / (total_norm + 1e-6)
             for g in grads:
                 g.mul_(scale)
+
+
+def apply_top_p(probs: torch.Tensor, p: float) -> torch.Tensor:
+    sorted_probs, sorted_indices = torch.sort(probs, dim=-1)
+    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+    mask = cumulative_probs - sorted_probs > p
+    sorted_probs[mask] = 0.0
+    result = torch.zeros_like(probs).scatter_(-1, sorted_indices, sorted_probs)
+    return result / result.sum(dim=-1, keepdim=True)
+
+
+def decode(
+        prompt,
+        model,
+        tokenizer,
+        max_new_tokens=1024,
+        eof_token="<|endoftext|>",
+        temperature=1.0,
+        top_p=1.0,
+        device=None,
+):
+    token_ids = tokenizer.encode(prompt)
+    tokens = torch.tensor(token_ids, dtype=torch.int64, device=device).unsqueeze(0)  # (1, seq_len)
+    eof_id = tokenizer.encode(eof_token)[0]
+    for _ in range(max_new_tokens):
+        with torch.no_grad():
+            logits = model(tokens)  # (1, seq_len, vocab_size)
+
+        if temperature <= 0:
+            next_logits = logits[0, -1, :]  # (vocab_size)
+            next_token = next_logits.argmax(dim=-1, keepdim=True)
+        else:
+            next_logits = logits[0, -1, :] / temperature  # (vocab_size)
+            probs = apply_top_p(softmax(next_logits, dim=-1), top_p)
+            next_token = torch.multinomial(probs, num_samples=1)
+
+        tokens = torch.cat([tokens, next_token.unsqueeze(0)], dim=1)
+        if next_token.item() == eof_id:
+            break
+    return tokenizer.decode(tokens[0].tolist())
