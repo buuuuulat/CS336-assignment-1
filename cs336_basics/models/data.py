@@ -27,8 +27,8 @@ def save_checkpoint(
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         iteration: int,
-        config: dict,
         out: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
+        config: dict | None = None,
 ):
     checkpoint = {
         "model": model.state_dict(),

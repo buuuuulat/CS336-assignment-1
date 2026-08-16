@@ -60,16 +60,20 @@ def lr_scheduler(
 
 
 # noinspection unsupported-operator
-def gradient_clip(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
+def gradient_clip(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> torch.Tensor:
+    """
+    Clips gradients in-place, returns the total l2 norm before clipping.
+    """
     with torch.no_grad():
         grads = [p.grad for p in parameters if p.grad is not None]
         if not grads:
-            return
+            return torch.tensor(0.0)
         total_norm = torch.sqrt(torch.stack([(g.float()**2).sum() for g in grads]).sum())
         if total_norm > max_l2_norm:
             scale = max_l2_norm / (total_norm + 1e-6)
             for g in grads:
                 g.mul_(scale)
+        return total_norm
 
 
 def apply_top_p(probs: torch.Tensor, p: float) -> torch.Tensor:

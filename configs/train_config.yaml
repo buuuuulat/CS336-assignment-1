@@ -1,6 +1,6 @@
 # TransformerLM
 model:
-  vocab_size: 32000
+  vocab_size: 10000
   context_length: 1024
   num_layers: 12
   d_model: 768
@@ -22,14 +22,16 @@ optimizer:
   sgd:
     lr: 0.1
 
-data:
-  path: ./data/train_data.npy
+data:  # vocab_size must match. TinyStories = 10000, owt = 32000
+  train_path: ./tokenized/tinystories_train.npy
+  val_path: ./tokenized/tinystories_valid.npy
   batch_size: 32
 
 train:
-  num_steps: 10
+  num_steps: 5000
   max_l2_norm: 1.0
   seed: 42
+  resume: null  # null = from scratch, str = path to a checkpoint
 
   lr_schedule:
     t_warmup: 800
@@ -37,11 +39,13 @@ train:
     lr_min_ratio: 0.1
 
   run_dir: ./runs
-  run_name: null  # null = timestamp, str = runs/<str>.
-  log_every: 1
-  ckpt_every: 2000
+  run_name: null  # null = timestamp or --set overrides, str = runs/<str>.
+  log_every: 20
+  eval_every: 250
+  eval_batches: 20
+  ckpt_every: 1000
   keep_last: 3 # number of checkpoints to save. null = all.
 
 runtime:
   device: mps  # cpu | mps | cuda | cuda:id
-  dtype: float32  # float32 | float16 | bfloat16
+  dtype: float32  # float32 | bfloat16
