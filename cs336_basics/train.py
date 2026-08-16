@@ -1,3 +1,5 @@
+import sys
+import math
 import time
 import json
 import subprocess
@@ -116,6 +118,37 @@ def evaluate(
     return total / n_batches
 
 
+STYLES = {"dim": "2", "cyan": "36", "green": "32"}
+RULE = "─" * 80
+COLUMNS = (f"{'step':>8}{'tokens':>11}{'loss':>10}{'lr':>11}"
+           f"{'|g|':>8}{'tok/s':>10}{'elapsed':>11}{'eta':>11}")
+
+
+def paint(text: str, style: str) -> str:
+    """ANSI style, skipped when stdout is a file and not a terminal."""
+    return f"\033[{STYLES[style]}m{text}\033[0m" if sys.stdout.isatty() else text
+
+
+def fmt_num(n: float) -> str:
+    """541229347 -> 541.23M"""
+    for unit, size in (("B", 1e9), ("M", 1e6), ("K", 1e3)):
+        if abs(n) >= size:
+            return f"{n / size:.2f}{unit}"
+    return f"{n:.0f}"
+
+
+def fmt_time(seconds: float) -> str:
+    """3661 -> 1:01:01"""
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}:{minutes:02d}:{seconds:02d}"
+
+
+def fmt_ppl(loss: float) -> str:
+    """exp() overflows on a diverged run, and by then the exact number stops mattering."""
+    return f"{math.exp(loss):.1f}" if loss < 20 else "1e8+"
+
+
 class Run:
     def __init__(self, config: dict):
         self.config = config
@@ -142,20 +175,97 @@ class Run:
         with open(self.dir / "config.yaml", "w") as f:
             yaml.safe_dump(config, f, sort_keys=False, allow_unicode=True)
 
+        self.total_steps = cfg["num_steps"]
+        self.tokens_per_step = config["data"]["batch_size"] * config["model"]["context_length"]
         self.best_loss = float("inf")
+        self.best_step = 0
         self.t0 = time.perf_counter()
+        self.step0 = 0
+        self.last_row = (0, 0.0)
         self.eval_time = 0.0
-        print(f"run dir: {self.dir}")
+        self.rows = 0
 
-    def start_clock(self):
-        """Call right before the loop, so wall_clock excludes model init and warmup."""
+    def start_clock(self, step: int = 0):
+        """Call right before the loop: wall_clock skips init, tok/s skips resumed steps."""
         self.t0 = time.perf_counter()
+        self.step0 = step
+        self.last_row = (step, 0.0)
 
     def log(self, record: dict):
         elapsed = time.perf_counter() - self.t0
         record = {"wall_clock": elapsed, "train_time": elapsed - self.eval_time, **record}
         with open(self.log_path, "a") as f:
             f.write(json.dumps(record) + "\n")
+        self._print(record)
+
+    @staticmethod
+    def _field(label: str, text: str) -> str:
+        return f" {paint(f'{label:<7}', 'dim')} {text}"
+
+    def _print(self, record: dict):
+        tokens = fmt_num(record["tokens"])
+
+        if "val_loss" in record:
+            val = record["val_loss"]
+            line = paint(f"{'eval':>8}{tokens:>11}{val:>10.4f}   ppl {fmt_ppl(val)}", "cyan")
+            if val < self.best_loss:  # log() runs before save_best(), so this is still the old best
+                line += paint("  ↓ best", "green")
+            print(line + paint(f"   ({record['eval_secs']:.1f}s)", "dim"))
+            return
+
+        if self.rows % 25 == 0:  # keep the columns in sight on a long run
+            print(paint(COLUMNS, "dim"))
+        self.rows += 1
+
+        prev_step, prev_time = self.last_row  # tok/s over the last window, not since the start
+        rate = (record["step"] - prev_step) * self.tokens_per_step / max(record["train_time"] - prev_time, 1e-9)
+        eta = record["wall_clock"] / (record["step"] - self.step0) * (self.total_steps - record["step"])
+        self.last_row = (record["step"], record["train_time"])
+        print(f"{record['step']:>8}{tokens:>11}{record['train_loss']:>10.4f}{record['lr']:>11.2e}"
+              f"{record['grad_norm']:>8.2f}{fmt_num(rate):>10}"
+              f"{fmt_time(record['wall_clock']):>11}{fmt_time(eta):>11}")
+
+    def header(self, model, train_data, val_data, start_step: int = 0):
+        cfg, model_cfg = self.config, self.config["model"]
+        sched = cfg["train"]["lr_schedule"]
+        optim = cfg["optimizer"]["name"]
+        lr = cfg["optimizer"][optim]["lr"]
+        params = sum(p.numel() for p in model.parameters())
+        total_tokens = self.total_steps * self.tokens_per_step
+
+        fields = [
+            ("run", f"{self.dir} · {cfg['meta']['commit'] or 'no git'} · "
+                    f"{cfg['runtime']['device']} · {cfg['runtime']['dtype']}"),
+            ("model", f"{model_cfg['num_layers']}L {model_cfg['d_model']}d {model_cfg['num_heads']}h "
+                      f"ctx{model_cfg['context_length']} vocab{model_cfg['vocab_size']} · "
+                      f"{fmt_num(params)} params"),
+            ("optim", f"{optim} lr {lr:.2e} → {lr * sched['lr_min_ratio']:.2e} · "
+                      f"warmup {sched['t_warmup']} · cosine to {sched['t_c'] or self.total_steps} · "
+                      f"clip {cfg['train']['max_l2_norm']}"),
+            ("data", f"{fmt_num(len(train_data))} train · {fmt_num(len(val_data))} val tokens · "
+                     f"{fmt_num(self.tokens_per_step)}/step"),
+            ("budget", f"{self.total_steps} steps · {fmt_num(total_tokens)} tokens · "
+                       f"{total_tokens / len(train_data):.2f} epochs"),
+        ]
+        if start_step:
+            fields.append(("resume", f"step {start_step} from {cfg['train']['resume']}"))
+
+        print(paint(RULE, "dim"))
+        for label, text in fields:
+            print(self._field(label, text))
+        print(paint(RULE, "dim"))
+
+    def finish(self):
+        elapsed = time.perf_counter() - self.t0
+        steps = self.total_steps - self.step0
+        print(paint(RULE, "dim"))
+        print(self._field("done", f"{steps} steps · {fmt_num(steps * self.tokens_per_step)} tokens · "
+                                  f"{fmt_time(elapsed)} ({fmt_time(self.eval_time)} of it eval)"))
+        if self.best_step:
+            print(self._field("best", f"val {self.best_loss:.4f} · ppl {fmt_ppl(self.best_loss)} · "
+                                      f"step {self.best_step}"))
+        print(self._field("files", f"{self.dir}"))
+        print(paint(RULE, "dim"))
 
     def _save(self, model, optimizer, step, path: Path):
         tmp = path.with_suffix(".tmp")
@@ -171,6 +281,7 @@ class Run:
         if loss >= self.best_loss:
             return
         self.best_loss = loss
+        self.best_step = step
         self._save(model, optimizer, step, self.dir / "best.pt")
 
     def save_final(self, model, optimizer, step):
@@ -204,10 +315,8 @@ def main(config: dict):
     train_data = np.load(config["data"]["train_path"], mmap_mode="r")
     val_data = np.load(config["data"]["val_path"], mmap_mode="r")
 
-    start_step = 0
-    if cfg["resume"]:
-        start_step = load_checkpoint(cfg["resume"], model, optimizer)
-        print(f"resumed from {cfg['resume']} at step {start_step}")
+    start_step = load_checkpoint(cfg["resume"], model, optimizer) if cfg["resume"] else 0
+    run.header(model, train_data, val_data, start_step)
 
     num_steps = cfg["num_steps"]
     sched = cfg["lr_schedule"]
@@ -235,7 +344,7 @@ def main(config: dict):
     )
 
     sync(device)
-    run.start_clock()
+    run.start_clock(start_step)
 
     for step in range(start_step, num_steps):
         lr = lr_scheduler(step, lr_max, lr_min, sched["t_warmup"], t_c)
@@ -263,22 +372,21 @@ def main(config: dict):
             avg = torch.stack(list(losses)).mean().item()
             grad_norm = torch.stack(list(norms)).mean().item()
             run.log({"step": done, "tokens": tokens, "train_loss": avg, "lr": lr, "grad_norm": grad_norm})
-            print(f"step {done:>6} | loss {avg:.4f} | lr {lr:.2e} | |g| {grad_norm:.2f}")
 
         if done % eval_every == 0 or done == num_steps:
             sync(device)
             eval_start = time.perf_counter()
             val_loss = evaluate(model, val_data, **eval_kwargs)
-            run.eval_time += time.perf_counter() - eval_start
-            run.log({"step": done, "tokens": tokens, "val_loss": val_loss})
-            print(f"step {done:>6} | val loss {val_loss:.4f}")
+            eval_secs = time.perf_counter() - eval_start
+            run.eval_time += eval_secs
+            run.log({"step": done, "tokens": tokens, "val_loss": val_loss, "eval_secs": eval_secs})
             run.save_best(model, optimizer, done, val_loss)
 
         if done % ckpt_every == 0:
             run.save_periodic(model, optimizer, done)
 
     run.save_final(model, optimizer, num_steps)
-    print(f"done in {time.perf_counter() - run.t0:.1f}s | best val loss: {run.best_loss:.4f}")
+    run.finish()
 
 
 if __name__ == "__main__":
