@@ -3,6 +3,7 @@ import math
 import time
 import json
 import subprocess
+from cmath import inf
 from collections import deque
 from datetime import datetime
 from pathlib import Path
@@ -15,7 +16,6 @@ from cs336_basics.models.transformers import TransformerLM
 from cs336_basics.models.optimizers import AdamW, SGD
 from cs336_basics.models.utils import cross_entropy_loss, lr_scheduler, gradient_clip
 from cs336_basics.models.data import get_batch, save_checkpoint, load_checkpoint
-
 
 DTYPES = {
     "float32": torch.float32,
@@ -296,7 +296,11 @@ class Run:
             f.unlink()
 
 
-def main(config: dict):
+def main(config: dict, break_val_diverge: int = 0):
+    """
+    config: train config.
+    break_val_diverge: break if training diverges n validational epochs. 0 = off.
+    """
     device = torch.device(config["runtime"]["device"])
     autocast_dtype = resolve_dtype(config["runtime"]["dtype"])
     use_amp = autocast_dtype != torch.float32
@@ -343,6 +347,9 @@ def main(config: dict):
         use_amp=use_amp,
     )
 
+    last_val_loss = inf
+    val_divergence_counter = 0
+
     sync(device)
     run.start_clock(start_step)
 
@@ -361,7 +368,6 @@ def main(config: dict):
         loss.backward()
         norm = gradient_clip(model.parameters(), cfg["max_l2_norm"])
         optimizer.step()
-
         losses.append(loss.detach())
         norms.append(norm)
 
@@ -377,6 +383,11 @@ def main(config: dict):
             sync(device)
             eval_start = time.perf_counter()
             val_loss = evaluate(model, val_data, **eval_kwargs)
+            if val_loss > last_val_loss:
+                val_divergence_counter += 1
+            else:
+                val_divergence_counter = 0
+            last_val_loss = val_loss
             eval_secs = time.perf_counter() - eval_start
             run.eval_time += eval_secs
             run.log({"step": done, "tokens": tokens, "val_loss": val_loss, "eval_secs": eval_secs})
@@ -384,6 +395,10 @@ def main(config: dict):
 
         if done % ckpt_every == 0:
             run.save_periodic(model, optimizer, done)
+
+        if break_val_diverge and break_val_diverge == val_divergence_counter:
+            print("Breaking due to validation divergence")
+            break
 
     run.save_final(model, optimizer, num_steps)
     run.finish()

@@ -1,11 +1,11 @@
 # TransformerLM
 model:
   vocab_size: 10000
-  context_length: 1024
-  num_layers: 12
-  d_model: 768
-  num_heads: 12
-  d_ff: 2048
+  context_length: 256
+  num_layers: 4
+  d_model: 512
+  num_heads: 16
+  d_ff: 1344  # should be 8/3 * d_model
   rms_norm_eps: 1.0e-5
   use_causal: True
   use_rope: True
@@ -28,20 +28,20 @@ data:  # vocab_size must match. TinyStories = 10000, owt = 32000
   batch_size: 32
 
 train:
-  num_steps: 5000
+  num_steps: 2000
   max_l2_norm: 1.0
   seed: 42
   resume: null  # null = from scratch, str = path to a checkpoint
 
   lr_schedule:
-    t_warmup: 800
+    t_warmup: 400
     t_c: null  # null = num_steps
     lr_min_ratio: 0.1
 
   run_dir: ./runs
   run_name: null  # null = timestamp or --set overrides, str = runs/<str>.
   log_every: 20
-  eval_every: 250
+  eval_every: 100
   eval_batches: 20
   ckpt_every: 1000
   keep_last: 3 # number of checkpoints to save. null = all.

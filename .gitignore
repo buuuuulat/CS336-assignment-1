@@ -164,6 +164,8 @@ cython_debug/
 
 data/
 .idea/
+.zed/
 
+runs/
 outputs/
 tokenized/
