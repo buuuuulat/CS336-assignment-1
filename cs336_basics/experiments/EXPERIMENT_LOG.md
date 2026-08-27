@@ -49,3 +49,11 @@ Sam and Sam smile. They are glad they have each other. They like to play with th
 
 This text is not the greatest, but there is some sort of comprehension. Words are real, some of the sentences make sense.
 
+
+## Ablations
+
+RMSNorm ablation
+![loss.png](../../runs/20260827_162238/plots/loss.png)
+Without RMSNorm, training becomes much more unstable. Spikes caused by overfitting can also be seen.
+
+
