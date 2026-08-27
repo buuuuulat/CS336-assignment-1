@@ -142,7 +142,7 @@ class SwiGLU(nn.Module):
         result = einsum(self.W2, gated, "... d_model d_ff, ... d_ff -> ... d_model")
         return result
 
-
+"""
 class RoPE(nn.Module):
     def __init__(
             self,
@@ -178,6 +178,23 @@ class RoPE(nn.Module):
         x_r = torch.stack((x1_r, x2_r), dim=-1)  # (..., seq_len, pairs, 2)
         x_r = rearrange(x_r, "... seq_len pairs two -> ... seq_len (pairs two)")
         return x_r
+"""
+
+class RoPE(nn.Module):
+    def __init__(
+            self,
+            theta: float,
+            d_k: int,
+            max_seq_len: int,
+            device: torch.device | None = None,
+    ) -> None:
+        super().__init__()
+        self.nope = nn.Identity()
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        # x: (..., seq_len, d_k)
+        # token_positions: (..., seq_len)
+        return self.nope(x)
 
 
 class MultiHeadSelfAttention(nn.Module):

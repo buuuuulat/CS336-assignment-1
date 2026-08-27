@@ -66,3 +66,10 @@ Pre norm learning curve
 Even though the results look the same, RMSNorm gives a dramatic boost in convergence speed and stability, especially
 the pre-norm version of it.
 
+
+## RoPE ablation (NoPE)
+Using NoPE
+![loss.png](../../runs/rope/nope/plots/loss.png)
+
+Using RoPE
+![loss.png](../../runs/lr_experiments/20260824_184917/plots/loss.png)
