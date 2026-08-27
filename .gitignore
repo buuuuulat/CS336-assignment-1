@@ -169,3 +169,5 @@ data/
 runs/
 outputs/
 tokenized/
+.DS_Store
+
