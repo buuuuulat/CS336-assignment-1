@@ -50,10 +50,19 @@ Sam and Sam smile. They are glad they have each other. They like to play with th
 This text is not the greatest, but there is some sort of comprehension. Words are real, some of the sentences make sense.
 
 
-## Ablations
+## RMSNorm ablation
 
-RMSNorm ablation
-![loss.png](../../runs/20260827_162238/plots/loss.png)
+![loss.png](../../runs/rmsnorm/rmsnorm_ablation/plots/loss.png)
 Without RMSNorm, training becomes much more unstable. Spikes caused by overfitting can also be seen.
 
+
+## Post-norm transformer
+Post norm learning curve
+![loss.png](../../runs/rmsnorm/post_norm/plots/loss.png)
+
+Pre norm learning curve
+![loss.png](../../runs/lr_experiments/20260824_184917/plots/loss.png)
+
+Even though the results look the same, RMSNorm gives a dramatic boost in convergence speed and stability, especially
+the pre-norm version of it.
 

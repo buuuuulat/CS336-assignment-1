@@ -26,8 +26,7 @@ class TransformerBlock(nn.Module):
         """
         super().__init__()
         
-        # self.attn_norm = RMSNorm(d_model, eps=rms_norm_eps, device=device, dtype=dtype)
-        self.attn_norm = nn.Identity()
+        self.attn_norm = RMSNorm(d_model, eps=rms_norm_eps, device=device, dtype=dtype)
         
         self.attn = MultiHeadSelfAttention(
             d_model = d_model,
@@ -41,8 +40,7 @@ class TransformerBlock(nn.Module):
             rope = rope,
         )
         
-        # self.ffn_norm = RMSNorm(d_model, eps=rms_norm_eps, device=device, dtype=dtype)
-        self.ffn_norm = nn.Identity()
+        self.ffn_norm = RMSNorm(d_model, eps=rms_norm_eps, device=device, dtype=dtype)
         
         self.ffn = SwiGLU(
             d_model = d_model,
@@ -52,8 +50,8 @@ class TransformerBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
-        y = x + self.attn(self.attn_norm(x), token_positions)
-        z = y + self.ffn(self.ffn_norm(y))
+        y = self.attn_norm(x + self.attn(x, token_positions))
+        z = self.ffn_norm(y + self.ffn(y))
         return z
 
 
@@ -100,9 +98,7 @@ class TransformerLM(nn.Module):
             max_seq_len = context_length,
         ) for _ in range(num_layers)])
 
-        # self.norm = RMSNorm(d_model=d_model, eps=rms_norm_eps, device=device, dtype=dtype)
-        self.norm = nn.Identity()
-        
+        self.norm = RMSNorm(d_model=d_model, eps=rms_norm_eps, device=device, dtype=dtype)
         self.linear = Linear(in_features=d_model, out_features=vocab_size, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
