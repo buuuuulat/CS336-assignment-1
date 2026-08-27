@@ -265,7 +265,16 @@ class Run:
             print(self._field("best", f"val {self.best_loss:.4f} · ppl {fmt_ppl(self.best_loss)} · "
                                       f"step {self.best_step}"))
         print(self._field("files", f"{self.dir}"))
+        print(self._field("plots", self.plot()))
         print(paint(RULE, "dim"))
+
+    def plot(self) -> str:
+        """Plots land next to the log, but a broken matplotlib must not sink a finished run."""
+        try:
+            from cs336_basics.experiments.plot_run import plot_run
+            return f"{len(plot_run(self.dir))} png · {self.dir / 'plots'}"
+        except Exception as e:
+            return f"skipped ({e})"
 
     def _save(self, model, optimizer, step, path: Path):
         tmp = path.with_suffix(".tmp")
