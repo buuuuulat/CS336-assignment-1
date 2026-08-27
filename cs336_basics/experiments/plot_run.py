@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 
 import matplotlib
@@ -7,10 +8,18 @@ matplotlib.use("Agg")  # we write files, no windows to pop up
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
-# how to draw a given metric: color, scale, whether to smooth the noise
+def ppl(loss):
+    """exp() overflows on a diverged run; those points get dropped, not clamped."""
+    return math.exp(loss) if loss < 700 else math.inf
+
+
+# how to draw a given metric: color, scale, whether to smooth the noise.
+# src/fn mark a metric derived from another column instead of logged on its own.
 STYLE = {
     "train_loss": dict(label="Train loss",     color="#2f6fdb", yscale="log",    smooth=0.6),
     "val_loss":   dict(label="Val loss",       color="#d1495b", yscale="log",    smooth=0.0),
+    "val_ppl":    dict(label="Val perplexity", color="#d1495b", yscale="linear", smooth=0.0,
+                       src="val_loss", fn=ppl),  # same colour: same signal, other scale
     "lr":         dict(label="Learning rate",  color="#3f8f5c", yscale="linear", smooth=0.0),
     "grad_norm":  dict(label="Grad norm",      color="#b07d2b", yscale="linear", smooth=0.8),
     "wall_clock": dict(label="Wall clock, s",  color="#6c6f7a", yscale="linear", smooth=0.0),
@@ -59,8 +68,16 @@ def fmt_value(v):
 
 
 def series(rows, x, metric):
-    """(x, metric) points in log order, None when there is nothing to draw."""
-    pts = [(r[x], r[metric]) for r in rows if x in r and isinstance(r.get(metric), (int, float))]
+    """(x, metric) points in log order, None when there is nothing to draw.
+
+    A derived metric reads its source column and maps it; anything non-finite
+    (exp() of a diverged loss, a nan in the log) is dropped rather than plotted,
+    it would blow up the autoscale of the axis.
+    """
+    st = STYLE.get(metric, {})
+    src, fn = st.get("src", metric), st.get("fn", lambda v: v)
+    pts = [(r[x], fn(r[src])) for r in rows if x in r and isinstance(r.get(src), (int, float))]
+    pts = [p for p in pts if math.isfinite(p[1])]
     if len(pts) < 2:
         return None
     xs, ys = zip(*pts)
@@ -102,7 +119,9 @@ def plot_run(run_dir, x: str = "step", metrics: list[str] | None = None) -> list
     """Draws one chart per metric found in log.jsonl, saves the png files to <run>/plots."""
     run_dir = Path(run_dir)
     rows = read_log(run_dir / "log.jsonl")
-    metrics = metrics or [m for m in STYLE if m != x and any(m in r for r in rows)]
+    # a derived metric is present when its *source* column is, its own key is never in the log
+    metrics = metrics or [m for m in STYLE
+                          if m != x and any(STYLE[m].get("src", m) in r for r in rows)]
 
     out_dir = run_dir / "plots"
     out_dir.mkdir(exist_ok=True)
