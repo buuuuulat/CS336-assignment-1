@@ -87,7 +87,7 @@ class RMSNorm(nn.Module):
         result = einsum(x / rms, self.gs, "... d_in, ... d_in -> ... d_in")
         return result.to(original_dtype)
 
-
+"""
 class SwiGLU(nn.Module):
     def __init__(
             self,
@@ -141,8 +141,49 @@ class SwiGLU(nn.Module):
         gated = w3x * silu
         result = einsum(self.W2, gated, "... d_model d_ff, ... d_ff -> ... d_model")
         return result
-
 """
+
+class SwiGLU(nn.Module):
+    def __init__(
+            self,
+            d_model: int,
+            d_ff: int,
+            device: torch.device | None = None,
+            dtype: torch.dtype | None = None,
+    ) -> None:
+        super().__init__()
+        self.W1 = nn.Parameter(
+            init_linear_(
+                torch.empty(
+                    d_ff,
+                    d_model,
+                    device=device,
+                    dtype=dtype,
+                ),
+                d_in=d_model,
+                d_out=d_ff,
+            ),
+        )
+        self.W2 = nn.Parameter(
+            init_linear_(
+                torch.empty(
+                    d_model,
+                    d_ff,
+                    device=device,
+                    dtype=dtype,
+                ),
+                d_in=d_ff,
+                d_out=d_model,
+            ),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        w1x = einsum(self.W1, x, "d_ff d_model, ... d_model -> ... d_ff")
+        silu = w1x * w1x.sigmoid()
+        result = einsum(self.W2, silu, "... d_model d_ff, ... d_ff -> ... d_model")
+        return result
+
+
 class RoPE(nn.Module):
     def __init__(
             self,
@@ -178,23 +219,6 @@ class RoPE(nn.Module):
         x_r = torch.stack((x1_r, x2_r), dim=-1)  # (..., seq_len, pairs, 2)
         x_r = rearrange(x_r, "... seq_len pairs two -> ... seq_len (pairs two)")
         return x_r
-"""
-
-class RoPE(nn.Module):
-    def __init__(
-            self,
-            theta: float,
-            d_k: int,
-            max_seq_len: int,
-            device: torch.device | None = None,
-    ) -> None:
-        super().__init__()
-        self.nope = nn.Identity()
-
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
-        # x: (..., seq_len, d_k)
-        # token_positions: (..., seq_len)
-        return self.nope(x)
 
 
 class MultiHeadSelfAttention(nn.Module):

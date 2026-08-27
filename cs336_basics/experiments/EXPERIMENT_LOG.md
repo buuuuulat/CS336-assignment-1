@@ -19,7 +19,6 @@ lr = 1e-4
 
 
 ## Batch sizes
-
 - Small batch sizes may lead to noisy training does not train models effectively enough
 - Very high batch sizes may lead to memory overloads or hurt generalization
 - For this case, optimal batch size number is around ~32-128
@@ -51,7 +50,6 @@ This text is not the greatest, but there is some sort of comprehension. Words ar
 
 
 ## RMSNorm ablation
-
 ![loss.png](../../runs/rmsnorm/rmsnorm_ablation/plots/loss.png)
 Without RMSNorm, training becomes much more unstable. Spikes caused by overfitting can also be seen.
 
@@ -73,3 +71,13 @@ Using NoPE
 
 Using RoPE
 ![loss.png](../../runs/lr_experiments/20260824_184917/plots/loss.png)
+
+
+## SwiGLU vs SiLU
+SiLU learning curve
+![loss.png](../../runs/swish/swiglu_vs_silu/plots/loss.png)
+
+SwiGLU learning curve
+![loss.png](../../runs/lr_experiments/20260824_184917/plots/loss.png)
+
+Models without gated unit is still able to converge, however SwiGLU wins in convergence speed and stability

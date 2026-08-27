@@ -5,7 +5,7 @@ model:
   num_layers: 4
   d_model: 512
   num_heads: 16
-  d_ff: 1344  # should be 8/3 * d_model
+  d_ff: 2048  # should be 8/3 * d_model with SwiGLU or 4 * d_model with Swish if d_model = 512. d_ff % 64 should be 0
   rms_norm_eps: 1.0e-5
   use_causal: True
   use_rope: True
@@ -39,12 +39,12 @@ train:
     lr_min_ratio: 0.1
 
   run_dir: ./runs
-  run_name: null  # null = timestamp or --set overrides, str = runs/<str>.
+  run_name: null  # null = timestamp or --set overrides, str = runs/<str>
   log_every: 20
   eval_every: 100
   eval_batches: 20
   ckpt_every: 1000
-  keep_last: 3 # number of checkpoints to save. null = all.
+  keep_last: 3 # number of checkpoints to save. null = all
 
 runtime:
   device: mps  # cpu | mps | cuda | cuda:id
