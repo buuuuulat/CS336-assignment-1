@@ -25,7 +25,7 @@ optimizer:
 data:  # vocab_size must match. TinyStories = 10000, owt = 32000
   train_path: ./tokenized/tinystories_train.npy
   val_path: ./tokenized/tinystories_valid.npy
-  batch_size: 32
+  batch_size: 128
 
 train:
   num_steps: 2000
