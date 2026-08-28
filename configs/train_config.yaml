@@ -24,11 +24,11 @@ optimizer:
 
 data:  # vocab_size must match. TinyStories = 10000, owt = 32000
   train_path: /dev/shm/owt_train.npy
-  val_path: /dev/shm/owt_train.npy
+  val_path: /dev/shm/owt_valid.npy
   batch_size: 128
 
 train:
-  num_steps: 8000
+  num_steps: 24000
   max_l2_norm: 1.0
   seed: 42
   resume: null  # null = from scratch, str = path to a checkpoint

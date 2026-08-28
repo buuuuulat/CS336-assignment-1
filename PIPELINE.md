@@ -33,7 +33,7 @@ Now you have the [tokenized](tokenized) directory with files in .npy format.
 If using Runpod, you may want to move it from the network to the local disk:
 
 ```shell
-df -h /workspace  # to check if workspace dir is local
+df -h /workspace  # check if workspace dir is a web storage
 df -h /dev/shm
 cp /workspace/tokenized/*.npy /dev/shm/
 ```
