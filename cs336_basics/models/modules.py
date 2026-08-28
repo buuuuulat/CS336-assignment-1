@@ -230,11 +230,18 @@ class MultiHeadSelfAttention(nn.Module):
         else:
             self.rope = None
 
-    def forward(self, x, token_positions=None):  # x: (..., seq_len, d_model)
         if self.use_causal:
-            mask = torch.tril(torch.ones(x.shape[-2], x.shape[-2], device=x.device, dtype=torch.bool))
+            self.register_buffer(
+                "causal_mask",
+                torch.tril(torch.ones(max_seq_len, max_seq_len, device=device, dtype=torch.bool)),
+                persistent=False,
+            )
         else:
-            mask = None
+            self.causal_mask = None
+
+    def forward(self, x, token_positions=None):  # x: (..., seq_len, d_model)
+        seq_len = x.shape[-2]
+        mask = self.causal_mask[:seq_len, :seq_len] if self.causal_mask is not None else None
 
         qkv = einsum(x, self.Wqkv, "... seq_len d_model, qkv d_model -> ... seq_len qkv")
         q, k, v = torch.split(qkv, self.split_sizes, dim=-1)

@@ -322,6 +322,7 @@ def main(config: dict, break_val_diverge: int = 0):
     rng = np.random.default_rng(seed)
 
     model = TransformerLM(**config["model"]).to(device=device)
+    model.compile()
     model.train()
     optimizer = build_optimizer(model, config["optimizer"])
 

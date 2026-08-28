@@ -1,11 +1,11 @@
 # TransformerLM
 model:
-  vocab_size: 10000
-  context_length: 256
-  num_layers: 4
-  d_model: 512
-  num_heads: 16
-  d_ff: 1344  # should be 8/3 * d_model
+  vocab_size: 32000
+  context_length: 512
+  num_layers: 12
+  d_model: 768
+  num_heads: 12
+  d_ff: 2048  # should be 8/3 * d_model
   rms_norm_eps: 1.0e-5
   use_causal: True
   use_rope: True
@@ -18,34 +18,34 @@ optimizer:
     lr: 1.0e-3
     betas: [0.9, 0.95]
     eps: 1.0e-8
-    weight_decay: 0.01
+    weight_decay: 0.1
   sgd:
     lr: 0.1
 
 data:  # vocab_size must match. TinyStories = 10000, owt = 32000
-  train_path: ./tokenized/tinystories_train.npy
-  val_path: ./tokenized/tinystories_valid.npy
+  train_path: /dev/shm/owt_train.npy
+  val_path: /dev/shm/owt_train.npy
   batch_size: 128
 
 train:
-  num_steps: 2000
+  num_steps: 8000
   max_l2_norm: 1.0
   seed: 42
   resume: null  # null = from scratch, str = path to a checkpoint
 
   lr_schedule:
-    t_warmup: 400
+    t_warmup: 250
     t_c: null  # null = num_steps
-    lr_min_ratio: 0.1
+    lr_min_ratio: 0.05
 
   run_dir: ./runs
-  run_name: null  # null = timestamp or --set overrides, str = runs/<str>.
-  log_every: 20
-  eval_every: 100
+  run_name: full_owt_run  # null = timestamp or --set overrides, str = runs/<str>.
+  log_every: 50
+  eval_every: 500
   eval_batches: 20
-  ckpt_every: 1000
-  keep_last: 3 # number of checkpoints to save. null = all.
+  ckpt_every: 2000
+  keep_last: 1 # number of checkpoints to save. null = all.
 
 runtime:
-  device: mps  # cpu | mps | cuda | cuda:id
-  dtype: float32  # float32 | bfloat16
+  device: cuda  # cpu | mps | cuda | cuda:id
+  dtype: bfloat16  # float32 | bfloat16

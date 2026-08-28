@@ -30,6 +30,14 @@ uv run cs336_basics/tokenizer/tokenize_file_mp.py
 
 Now you have the [tokenized](tokenized) directory with files in .npy format.
 
+If using Runpod, you may want to move it from the network to the local disk:
+
+```shell
+df -h /workspace  # to check if workspace dir is local
+df -h /dev/shm
+cp /workspace/tokenized/*.npy /dev/shm/
+```
+
 ### 3. Train the model
 Edit the [train_config.yaml](configs/train_config.yaml) if necessary and run:
 
