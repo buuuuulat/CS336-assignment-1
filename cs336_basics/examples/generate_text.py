@@ -69,4 +69,3 @@ if __name__ == "__main__":
         )
         head, tail = (args.prompt, text[len(args.prompt):]) if text.startswith(args.prompt) else ("", text)
         print(paint(head, "dim") + tail + "\n")
-        print(f"Generated length: {len(tail)}")
