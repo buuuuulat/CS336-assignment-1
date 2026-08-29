@@ -33,7 +33,7 @@ def test_train_bpe():
     )
 
     # Path to the reference tokenizer ints_to_tokens and merges
-    reference_vocab_path = FIXTURES_PATH / "train-bpe-reference-ints_to_tokens.json"
+    reference_vocab_path = FIXTURES_PATH / "train-bpe-reference-vocab.json"
     reference_merges_path = FIXTURES_PATH / "train-bpe-reference-merges.txt"
 
     # Compare the learned merges to the expected output merges

@@ -9,13 +9,13 @@
 - Optimal learning rate for this experiment is 1e-3
 
 lr = 1e-3
-![loss.png](../../runs/lr_experiments/20260824_184917/plots/loss.png)
+![lr = 1e-3](media/lr_1e-3_loss.png)
 
 lr = 1.0
-![loss.png](../../runs/lr_experiments/20260824_174325/plots/loss.png)
+![lr = 1.0](media/lr_1e0_loss.png)
 
 lr = 1e-4
-![loss.png](../../runs/lr_experiments/20260824_194543/plots/loss.png)
+![lr = 1e-4](media/lr_1e-4_loss.png)
 
 ## Batch sizes
 
@@ -24,16 +24,16 @@ lr = 1e-4
 - For this case, optimal batch size number is around ~32-128
 
 batch = 1
-![loss.png](../../runs/batch_experiments/20260827_140432/plots/loss.png)
+![batch = 1](media/batch_1_loss.png)
 
 batch = 8
-![loss.png](../../runs/batch_experiments/20260827_140717/plots/loss.png)
+![batch = 8](media/batch_8_loss.png)
 
 batch = 32
-![loss.png](../../runs/lr_experiments/20260824_184917/plots/loss.png)
+![batch = 32](media/batch_32_loss.png)
 
 batch = 48
-![loss.png](../../runs/batch_experiments/20260827_142558/plots/loss.png)
+![batch = 48](media/batch_48_loss.png)
 
 ## Text generation
 
@@ -55,7 +55,7 @@ sense.
 
 ## The same model on OpenWebText
 
-![loss.png](../../runs/owt_small_model/plots/loss.png)
+![OWT small model loss](media/owt_small_model_loss.png)
 
 Even though the overall loss value is higher on OWT, it is not the greatest idea to rely on it. The loss number also
 depends on the vocab size (cross-entropy).
@@ -76,9 +76,9 @@ reason why that’s
 
 ## Full OpenWebText run
 
-![loss.png](../../runs/full_runs/full_owt_run/plots/loss.png)
-![val_ppl.png](../../runs/full_runs/full_owt_run/plots/val_ppl.png)
-![wall_clock.png](../../runs/full_runs/full_owt_run/plots/wall_clock.png)
+![Full OWT run loss](media/full_owt_run_loss.png)
+![Full OWT run validation perplexity](media/full_owt_run_val_ppl.png)
+![Full OWT run wall clock](media/full_owt_run_wall_clock.png)
 
 Model train for about an hour with the following hyperparameters:
 

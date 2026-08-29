@@ -19,8 +19,18 @@ cd ..
 ### 2. Tokenize it
 
 Firstly, edit the [tokenize_file_mp.py](cs336_basics/tokenizer/tokenize_file_mp.py) file to use actual paths.
-Make sure you have trained vocab and merges in the [outputs](outputs) directory. If not, train it via the
-[train_bpe.py](cs336_basics/tokenizer/train_bpe.py).
+
+The trained vocab and merges are **not** shipped in this repo — the [outputs](outputs) directory is gitignored, so
+you have to build them yourself with [train_bpe.py](cs336_basics/tokenizer/train_bpe.py):
+
+```shell
+uv run cs336_basics/tokenizer/train_bpe.py
+```
+
+Its `__main__` block is set up for OpenWebText (`vocab_size=32000`, reads `./data/owt_train.txt`, writes to
+`./outputs/bpe_owt/`). For the TinyStories tokenizer that `experiments.py`, `testing.py` and
+`generate_text.py --tokenizer ./outputs/bpe_tinystories` expect, adjust the input path, `vocab_size` and the two
+save paths accordingly.
 
 Then, run:
 

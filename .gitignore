@@ -169,3 +169,22 @@ data/
 runs/
 tokenized/
 .DS_Store
+
+# Trained artifacts — regenerate locally, see PIPELINE.md
+outputs/
+*.pkl
+*.npy
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+# ...except the course-provided test fixtures and snapshots
+!tests/_snapshots/**
+!tests/fixtures/**
+
+# Credentials
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+secrets.y*ml

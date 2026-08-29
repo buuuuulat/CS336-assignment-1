@@ -18,7 +18,7 @@ def latest_run(run_dir: str = "./runs") -> Path:
 
 def load(ckpt_path, tokenizer_dir, device) -> tuple[TransformerLM, Tokenizer, int]:
     """The checkpoint carries its own config, so the shape of the model comes from it and not from a yaml."""
-    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=True)
     model_cfg = ckpt["config"]["model"]
     model = TransformerLM(**model_cfg).to(device)
     model.load_state_dict(ckpt["model"])
